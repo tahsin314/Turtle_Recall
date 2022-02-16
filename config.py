@@ -28,12 +28,12 @@ from albumentations import (
 )
 
 br_config = cfg()
-br_config.read('br_config.ini')
+br_config.read('tr_config.ini')
 params = br_config['params']
 random_id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10))
 data_dir = params['data_dir']
-image_path = params['image_path']
-test_image_path = params['test_image_path']
+# image_path = params['image_path']
+# test_image_path = params['test_image_path']
 n_fold = int(params['n_fold'])
 val_fold = int(params['val_fold'])
 test_fold = int(params['test_fold'])
@@ -83,17 +83,54 @@ else: sampler = None
 np.random.seed(SEED)
 os.makedirs(model_dir, exist_ok=True)
 os.makedirs(history_dir, exist_ok=True)
-
-skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=SEED)
-df = get_data(data_dir, n_fold, SEED)
-train_df = df[(df['fold'] != val_fold) & (df['fold'] != test_fold)] 
+class_id, id_class = get_class_id(data_dir, 'train.csv')
+df = get_data(data_dir, 'train.csv', class_id, n_fold, SEED)
+train_df = df[df['fold'] != val_fold] 
 valid_df = df[df['fold'] == val_fold]
-test_df = df[df['fold'] == test_fold]
-test_df2 = get_test_data(test_image_path, 5, SEED)
+test_df = get_data(data_dir, 'test.csv', class_id, None, random_state=SEED)
+# test_df = df[df['fold'] == test_fold]
+# test_df2 = get_test_data(test_image_path, 5, SEED)
 print(len(df), len(train_df), len(valid_df), len(test_df))
+
+# train_aug = Compose([
+#   ShiftScaleRotate(p=0.4,rotate_limit=360, border_mode= cv2.BORDER_CONSTANT, value=[0, 0, 0], scale_limit=0.25),
+#     OneOf([
+#     Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
+#     # GridMask(num_grid=7, p=0.7, fill_value=0)
+#     ], p=0.20),
+#     RandomSizedCrop(min_max_height=(int(sz*0.8), int(sz*0.8)), height=sz, width=sz, p=0.5),
+#     RandomBrightnessContrast(brightness_limit=0.5, contrast_limit=0.5, p=0.4),
+#     # RandomAugMix(severity=3, width=1, alpha=1., p=0.3), 
+#     # OneOf([
+#     #     # Equalize(p=0.2),
+#     #     Posterize(num_bits
+#     #     =4, p=0.4),
+#     #     Downscale(0.40, 0.80, cv2.INTER_LINEAR, p=0.3)                  
+#     #     ], p=0.2),
+#     # OneOf([
+#     #     GaussNoise(var_limit=0.1),
+#     #     Blur(),
+#     #     GaussianBlur(blur_limit=3),
+#     #     # RandomGamma(p=0.7),
+#     #     ], p=0.1),
+#     HueSaturationValue(p=0.1),
+#     HorizontalFlip(0.1),
+#     VerticalFlip(0.1),
+#     Resize(sz, sz, p=1, always_apply=True)
+#     # Rotate(limit=360, border_mode=2, p=0.6), 
+#     # ColorConstancy(p=0.3, always_apply=False),
+#     # Normalize(always_apply=True)
+#     ]
+#       )
+# val_aug = Compose([Normalize(always_apply=True)])
+# val_aug = None
 
 train_aug = Compose([
     OneOf([
+        Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
+        GaussNoise(var_limit=0.1),
+        ShiftScaleRotate(p=0.4,rotate_limit=45, border_mode= cv2.BORDER_REFLECT101, value=[0, 0, 0], scale_limit=0.25)
+
     ], p=0.20),
     # HorizontalFlip(0.4),
     # VerticalFlip(0.4),
@@ -105,5 +142,3 @@ train_aug = Compose([
       )
       
 val_aug = Compose([Resize(sz, sz, p=1, always_apply=True)])
-# val_aug = None
-

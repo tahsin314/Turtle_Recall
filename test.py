@@ -1,31 +1,28 @@
 import os
-from config import *
+# from config import *
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
 
-dirname = '../../data/HARTS/Classes_updated/'
+dirname = '../../data/Turtle/'
 
-def get_data(dirname, sep='Classes_updated', n_fold=5, random_state=42):
+def get_data(dirname, csvfile, n_fold=5, random_state=42):
     
     paths = []
     classname = []
     train_idx = []
     val_idx = []
-    skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=SEED)
-    for root, dirs, files in os.walk(dirname, topdown=False):
-        for name in files:
-            path = os.path.join(root, name)
-            paths.append(path)
-            classname.append(int(path.split(f'/{sep}/')[-1].split('/')[0]))
-    df = pd.DataFrame(list(zip(paths, classname)), columns=['path', 'classname'])
-    for i, (train_index, val_index) in enumerate(skf.split(paths, classname)):
-        train_idx = train_index
-        val_idx = val_index
-        df.loc[val_idx, 'fold'] = i
+    df = pd.read_csv(os.path.join(dirname, csvfile))
+    df['path'] = df['image_id'].apply(lambda x: os.path.join(dirname, 'train', x))
+    if n_fold:
+        skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=random_state)
+        for i, (train_index, val_index) in enumerate(skf.split(df['path'], df['turtle_id'])):
+            train_idx = train_index
+            val_idx = val_index
+            df.loc[val_idx, 'fold'] = i
 
-    df['fold'] = df['fold'].astype('int')
+        df['fold'] = df['fold'].astype('int')
 
     return df
 
-print(get_data(dirname))
+print(get_data(dirname, 'train.csv').head())

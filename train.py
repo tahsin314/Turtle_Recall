@@ -50,8 +50,8 @@ else:
   wandb.run.name= model_name
 
 optimizer = optim.AdamW
-base_criterion = nn.BCEWithLogitsLoss(reduction='sum')
-# base_criterion = criterion_margin_focal_binary_cross_entropy
+# base_criterion = nn.BCEWithLogitsLoss(reduction='sum')
+base_criterion = criterion_margin_focal_binary_cross_entropy
 # mixup_criterion_ = partial(mixup_criterion, criterion=base_criterion, rate=1.0)
 mixup_criterion = MixupLoss(base_criterion, 1.0)
 # ohem_criterion = partial(ohem_loss, rate=1.0, base_crit=base_criterion)
@@ -93,13 +93,13 @@ for f in range(n_fold):
       {'params': base.at3.parameters(),  'lr': learning_rate},
       {'params': base.at4.parameters(),  'lr': learning_rate}]
 
-    train_ds = TurtleDataset(train_df.id.values, train_df.target.values, dim=sz, num_class=num_class,
+    train_ds = TurtleDataset(train_df.path.values, train_df.target.values, dim=sz, num_class=num_class,
     transforms=train_aug)
 
-    valid_ds = TurtleDataset(valid_df.id.values, valid_df.target.values, dim=sz, num_class=num_class, 
+    valid_ds = TurtleDataset(valid_df.path.values, valid_df.target.values, dim=sz, num_class=num_class, 
     transforms=val_aug)
 
-    test_ds = TurtleDataset(test_df.id.values, test_df.target.values, dim=sz,num_class=num_class, 
+    test_ds = TurtleDataset(test_df.path.values, None, dim=sz,num_class=num_class, 
     transforms=val_aug)
     data_module = TurtleDataModule(train_ds, valid_ds, test_ds,  sampler= sampler, 
     batch_size=batch_size)
@@ -129,9 +129,9 @@ for f in range(n_fold):
     )
 
     checkpoint_callback2 = ModelCheckpoint(
-        monitor=f'val_micro_f_fold_{f}',
+        monitor=f'val_mAP@5_fold_{f}',
         dirpath='model_dir',
-        filename=f"{model_name}_micro_f_fold_{f}",
+        filename=f"{model_name}_mAP@5_fold_{f}",
         save_top_k=1,
         mode='max',
     )
@@ -182,7 +182,7 @@ for f in range(n_fold):
     except:
       pass
     chk_path = checkpoint_callback2.best_model_path
-    chk_path = '/home/UFAD/m.tahsinmostafiz/Playground/Turtle_Recognition/model_dir/Normal_resnet18d_micro_f_fold_0-v40.ckpt'
+    # chk_path = '/home/UFAD/m.tahsinmostafiz/Playground/Turtle_Recognition/model_dir/Normal_resnet18d_micro_f_fold_0-v40.ckpt'
     model2 = LightningTurtle.load_from_checkpoint(chk_path, model=base, choice_weights=[1.0, 0.0], loss_fns=criterions, optim=optimizer,
     plist=plist, batch_size=batch_size, 
     lr_scheduler=lr_reduce_scheduler, cyclic_scheduler=cyclic_scheduler, 
@@ -193,14 +193,14 @@ for f in range(n_fold):
 
     # CAM Generation
     model2.eval()
-    plot_heatmap(model2, test_df, val_aug, cam_layer_name=cam_layer_name, num_class=num_class, sz=sz)
-    cam = cv2.imread('./heatmap.png', cv2.IMREAD_COLOR)
-    cam = cv2.cvtColor(cam, cv2.COLOR_BGR2RGB)
-    wandb.log({"CAM": [wandb.Image(cam, caption="Class Activation Mapping")]})
-    model2.model.backbone.fc = nn.Identity()
-    # print(model2.model.backbone)
-    lrp = LRP_Captum(model2.model.backbone, torch.randn(3, sz, sz))
-    print(lrp)
+    # plot_heatmap(model2, test_df, val_aug, cam_layer_name=cam_layer_name, num_class=num_class, sz=sz)
+    # cam = cv2.imread('./heatmap.png', cv2.IMREAD_COLOR)
+    # cam = cv2.cvtColor(cam, cv2.COLOR_BGR2RGB)
+    # wandb.log({"CAM": [wandb.Image(cam, caption="Class Activation Mapping")]})
+    # model2.model.backbone.fc = nn.Identity()
+    # # print(model2.model.backbone)
+    # lrp = LRP_Captum(model2.model.backbone, torch.randn(3, sz, sz))
+    # print(lrp)
     if not oof:
       break
 

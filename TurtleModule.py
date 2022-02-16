@@ -1,4 +1,6 @@
 from random import choice, choices
+
+from cv2 import log
 from config import *
 from losses.mix import *
 from utils import *
@@ -33,6 +35,8 @@ class LightningTurtle(pl.LightningModule):
       self.choice_weights = choice_weights
       self.criterion = self.loss_fns[0]
       self.train_loss  = 0
+      self.test_imgs = []
+      self.test_probs = []
       self.epoch_end_output = [] # Ugly hack for gathering results from multiple GPUs
   
   def forward(self, x):
@@ -47,7 +51,7 @@ class LightningTurtle(pl.LightningModule):
         return ({
        'optimizer': optimizer,
        'lr_scheduler': lr_sc,
-       'monitor': f'val_micro_f_fold_{self.fold}',
+       'monitor': f'val_mAP@5_fold_{self.fold}',
        'cyclic_scheduler': self.cyclic_scheduler}
         )
  
@@ -55,14 +59,21 @@ class LightningTurtle(pl.LightningModule):
       return self.criterion(logits, labels)
   
   def step(self, batch):
-    _, x, y = batch
-    x, y = x.float(), y.float()
-    if self.criterion == self.loss_fns[1]:
-      x, y1, y2, lam = mixup(x, y)
-      y = [y1, y2, lam]
+    try:
+      _, x, y = batch
+      x, y = x.float(), y.float()
+      if self.criterion == self.loss_fns[1]:
+        x, y1, y2, lam = mixup(x, y)
+        y = [y1, y2, lam]
+    except:
+      img_id, x = batch
+    
     logits = torch.squeeze(self.forward(x))
-    loss = self.loss_func(logits, y)
-    return loss, logits, y  
+    if len(batch) > 2:
+      loss = self.loss_func(logits, y)
+      return loss, logits, y  
+    else:
+      return img_id, logits
   
   def training_step(self, train_batch, batch_idx):
     # if self.current_epoch < 4:
@@ -88,11 +99,16 @@ class LightningTurtle(pl.LightningModule):
   def test_step(self, test_batch, batch_idx):
       self.criterion = self.loss_fns[0]
       self.train_loss  = 0
-      loss, logits, y = self.step(test_batch)
-      self.log(f'test_loss_fold_{self.fold}', loss, on_epoch=True, sync_dist=True) 
-      test_log = {'test_loss':loss, 'probs':logits, 'gt':y}
-      self.epoch_end_output.append({k:v.cpu() for k,v in test_log.items()})
-      return test_log
+      img_id, logits = self.step(test_batch)
+      predictions = logits.sigmoid().detach().cpu().numpy()
+      predictions = np.argsort(predictions, axis=1)[::-1][:, :5]
+      self.test_imgs.extend([i.split('/')[-1].split('.')[0] for i in img_id])
+      self.test_probs.extend(predictions)
+      # self.log(f'test_loss_fold_{self.fold}', loss, on_epoch=True, sync_dist=True) 
+      # test_log = {'img_id':[i.split('/')[-1].split('.')[0] for i in img_id], 'probs':logits}
+      # # print(logits.size())
+      # self.epoch_end_output.append({k:v for k,v in test_log.items()})
+      # return test_log
 
   def label_processor(self, probs, gt):
     pr = probs.sigmoid().detach().cpu().numpy()
@@ -111,29 +127,33 @@ class LightningTurtle(pl.LightningModule):
   def epoch_end(self, mode, outputs):
     if self.distributed_backend:
       outputs = self.epoch_end_output
-    avg_loss = torch.Tensor([out[f'{mode}_loss'].mean() for out in outputs]).mean()
-    probs = torch.cat([torch.tensor(out['probs']) for out in outputs], dim=0)
-    gt = torch.cat([torch.tensor(out['gt']) for out in outputs], dim=0)
-    pr, la = self.label_processor(torch.squeeze(probs), torch.squeeze(gt))
-    pr = np.nan_to_num(pr, 0.5)
-    labels = [i for i in range(self.num_class)]
-    pr = np.argmax(pr, axis=1)
-    la = np.argmax(la, axis=1)
-    f_score = torch.tensor(f1_score(la, pr, labels=None, average='micro', sample_weight=None))
-    print(f'Epoch: {self.current_epoch} Loss : {avg_loss.numpy():.2f}, micro_f_score: {f_score:.4f}')
-    logs = {f'{mode}_loss': avg_loss, f'{mode}_micro_f': f_score}
-    self.log(f'{mode}_loss_fold_{self.fold}', avg_loss)
-    self.log( f'{mode}_micro_f_fold_{self.fold}', f_score)
-    self.epoch_end_output = []
-    plot_confusion_matrix(pr, la, labels)
-    hist = cv2.imread('./conf.png', cv2.IMREAD_COLOR)
-    hist = cv2.cvtColor(hist, cv2.COLOR_BGR2RGB)
-    # wandb.log({"histogram": [wandb.Image(hist, caption="Histogram")]})
-    # plot_heatmap(self.model, valid_df, val_aug, sz)
-    # cam = cv2.imread('./heatmap.png', cv2.IMREAD_COLOR)
-    # cam = cv2.cvtColor(cam, cv2.COLOR_BGR2RGB)
-    # wandb.log({"CAM": [wandb.Image(cam, caption="Class Activation Mapping")]})
-    return pr, la, {f'avg_{mode}_loss': avg_loss, 'log': logs}
+    if not mode == 'test':
+      avg_loss = torch.Tensor([out[f'{mode}_loss'].mean() for out in outputs]).mean()
+      probs = torch.cat([torch.tensor(out['probs']) for out in outputs], dim=0)
+      gt = torch.cat([torch.tensor(out['gt']) for out in outputs], dim=0)
+      pr, la = self.label_processor(torch.squeeze(probs), torch.squeeze(gt))
+      pr = np.nan_to_num(pr, 0.5)
+      labels = [i for i in range(self.num_class)]
+      # pr = np.argmax(pr, axis=1)
+      la = np.argmax(la, axis=1)
+      map_k = torch.tensor(mapk(la, pr, k=5))
+      # f_score = torch.tensor(f1_score(la, pr, labels=None, average='micro', sample_weight=None))
+      print(f'Epoch: {self.current_epoch} Loss : {avg_loss.numpy():.2f}, mAP@5: {map_k:.4f}')
+      logs = {f'{mode}_loss': avg_loss, f'{mode}_mAP@5': map_k}
+      self.log(f'{mode}_loss_fold_{self.fold}', avg_loss)
+      self.log( f'{mode}_mAP@5_fold_{self.fold}', map_k)
+      self.epoch_end_output = []
+      # plot_confusion_matrix(pr, la, labels)
+      # hist = cv2.imread('./conf.png', cv2.IMREAD_COLOR)
+      # hist = cv2.cvtColor(hist, cv2.COLOR_BGR2RGB)
+      # # wandb.log({"histogram": [wandb.Image(hist, caption="Histogram")]})
+      # plot_heatmap(self.model, valid_df, val_aug, sz)
+      # cam = cv2.imread('./heatmap.png', cv2.IMREAD_COLOR)
+      # cam = cv2.cvtColor(cam, cv2.COLOR_BGR2RGB)
+      # wandb.log({"CAM": [wandb.Image(cam, caption="Class Activation Mapping")]})
+      return pr, la, {f'avg_{mode}_loss': avg_loss, 'log': logs}
+    else:
+      return {'log': logs}
 
   def validation_epoch_end(self, outputs):
     _, _, log_dict = self.epoch_end('val', outputs)
@@ -141,6 +161,11 @@ class LightningTurtle(pl.LightningModule):
     return log_dict
 
   def test_epoch_end(self, outputs):
-    _, _, log_dict = self.epoch_end('test', outputs)
-    self.epoch_end_output = []
-    return log_dict
+    # log_dict = self.epoch_end('test', outputs)
+    # print(self.epoch_end_output)
+    # self.epoch_end_output = []
+    # print(np.array(self.test_imgs).shape, np.array(self.test_probs).shape)
+    test_probs = np.array([id_class[i] for i in np.array(self.test_probs).reshape(-1)]).reshape(-1, 5)
+    # print(test_probs)
+    test_df = pd.DataFrame({'image_id':self.test_imgs, 'prediction1':test_probs[:, 0], 'prediction2':test_probs[:, 1], 'prediction3':test_probs[:, 2], 'prediction4':test_probs[:, 3], 'prediction5':test_probs[:, 4]})
+    test_df.to_csv(f'SUBMISSION.csv', index=False)

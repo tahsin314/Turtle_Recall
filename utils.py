@@ -25,27 +25,70 @@ def seed_everything(seed):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def get_data(dirname, n_fold=5, random_state=42):
-    
-    paths = []
-    classname = []
-    train_idx = []
-    val_idx = []
-    skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=random_state)
-    for root, dirs, files in os.walk(dirname, topdown=False):
-        for name in files:
-            path = os.path.join(root, name)
-            paths.append(path)
-            classname.append(int(path.split('/Classes_updated/')[-1].split('/')[0]))
-    df = pd.DataFrame(list(zip(paths, classname)), columns=['id', 'target'])
-    for i, (train_index, val_index) in enumerate(skf.split(paths, classname)):
-        train_idx = train_index
-        val_idx = val_index
-        df.loc[val_idx, 'fold'] = i
+def get_class_id(dirname, csvfile):
+    df = pd.read_csv(os.path.join(dirname, csvfile))
+    classes = df['turtle_id'].unique()
+    class_id = {c: i for i, c in enumerate(classes)}
+    id_class = {i: c for i, c in enumerate(classes)}
+    return class_id, id_class
 
-    df['fold'] = df['fold'].astype('int')
+def get_data(dirname, csvfile, class_id, n_fold=5, random_state=42):
+    
+    val_idx = []
+    df = pd.read_csv(os.path.join(dirname, csvfile))
+    df['path'] = df['image_id'].apply(lambda x: os.path.join(dirname, 'train', f"{x}.JPG"))
+    if n_fold:
+        df['target'] = df['turtle_id'].apply(lambda x: class_id[x])
+        skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=random_state)
+        for i, (train_index, val_index) in enumerate(skf.split(df['path'], df['turtle_id'])):
+            train_idx = train_index
+            val_idx = val_index
+            df.loc[val_idx, 'fold'] = i
+
+        df['fold'] = df['fold'].astype('int')
 
     return df
+
+def apk(actual, predicted, k=5):
+  """Computes the average precision at k.
+
+  Args:
+    actual: The turtle ID to be predicted.
+    predicted : A list of predicted turtle IDs (order does matter).
+    k : The maximum number of predicted elements.
+
+  Returns:
+    The average precision at k.
+  """
+  predicted = np.argsort(predicted)[::-1][:k]
+  if len(predicted) > k:
+    predicted = predicted[:k]
+
+  score = 0.0
+  num_hits = 0.0
+
+  for i, p in enumerate(predicted):
+    if p == actual and p not in predicted[:i]:
+      num_hits += 1.0
+      score += num_hits / (i + 1.0)
+
+  return score
+
+
+def mapk(actual, predicted, k=5):
+  """ Computes the mean average precision at k.
+
+    The turtle ID at actual[i] will be used to score predicted[i][:k] so order
+    matters throughout!
+
+    actual: A list of the true turtle IDs to score against.
+    predicted: A list of lists of predicted turtle IDs.
+    k: The size of the window to score within.
+
+    Returns:
+      The mean average precision at k.
+  """
+  return np.mean([apk(a, p, k) for a, p in zip(actual, predicted)])
 
 def get_test_data(dirname, n_fold=5, random_state=42):
     

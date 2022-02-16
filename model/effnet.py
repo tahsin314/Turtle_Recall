@@ -25,7 +25,7 @@ from losses.triplet_loss import *
 class EffNet(nn.Module):
     def __init__(self, pretrained_model='tf_efficientnet_b4', num_class=1):
         super(EffNet, self).__init__()
-        self.backbone = timm.create_model(pretrained_model, pretrained=True, in_chans=1)
+        self.backbone = timm.create_model(pretrained_model, pretrained=True, in_chans=3)
         self.in_features = self.backbone.bn2.num_features
         self.head = Head(self.in_features, num_class, activation='mish')
         
@@ -33,7 +33,7 @@ class EffNet(nn.Module):
         x = self.backbone.conv_stem(x)
         x = self.backbone.bn1(x)
         x = self.backbone.act1(x)
-        x = self.backbone.Turtles(x)
+        x = self.backbone.blocks(x)
         x = self.backbone.conv_head(x)
         output = self.head(x)
         return output

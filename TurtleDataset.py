@@ -34,7 +34,8 @@ class TurtleDataset(Dataset):
         image = cv2.resize(image, (self.dim, self.dim))
         if self.transforms is not None:
             aug = self.transforms(image=image)
-            image = aug['image'].transpose(2, 0, 1)
+            image = aug['image']
+        image = image.transpose((2, 0, 1))
         if self.labels is not None:
             target = self.onehot(self.num_class, self.labels[idx]) 
             return image_id, image, target
