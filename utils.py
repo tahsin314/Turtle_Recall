@@ -28,6 +28,7 @@ def seed_everything(seed):
 def get_class_id(dirname, csvfile):
     df = pd.read_csv(os.path.join(dirname, csvfile))
     classes = df['turtle_id'].unique()
+    classes = np.append(classes, 'new_turtle')
     class_id = {c: i for i, c in enumerate(classes)}
     id_class = {i: c for i, c in enumerate(classes)}
     return class_id, id_class
@@ -38,7 +39,7 @@ def get_data(dirname, csvfile, class_id, n_fold=5, random_state=42):
     df = pd.read_csv(os.path.join(dirname, csvfile))
     df['path'] = df['image_id'].apply(lambda x: os.path.join(dirname, 'train', f"{x}.JPG"))
     if n_fold:
-        df['target'] = df['turtle_id'].apply(lambda x: class_id[x])
+        df['target'] = df['turtle_id'].apply(lambda x: class_id[x] if x in class_id.keys() else class_id['new_turtle'])
         skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=random_state)
         for i, (train_index, val_index) in enumerate(skf.split(df['path'], df['turtle_id'])):
             train_idx = train_index
@@ -60,7 +61,7 @@ def apk(actual, predicted, k=5):
   Returns:
     The average precision at k.
   """
-  predicted = np.argsort(predicted)[::-1][:k]
+#   predicted = np.argsort(predicted)[::-1][:k]
   if len(predicted) > k:
     predicted = predicted[:k]
 
@@ -88,6 +89,7 @@ def mapk(actual, predicted, k=5):
     Returns:
       The mean average precision at k.
   """
+  predicted = np.argsort(predicted)[:, -k:][:, ::-1]
   return np.mean([apk(a, p, k) for a, p in zip(actual, predicted)])
 
 def get_test_data(dirname, n_fold=5, random_state=42):

@@ -13,8 +13,6 @@ from .triplet_attention import *
 from .cbam import *
 from .botnet import *
 from losses.arcface import ArcMarginProduct
-import sys
-sys.path.append('../pytorch-image-models/pytorch-image-models-master')
 import timm
 from pprint import pprint
 

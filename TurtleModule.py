@@ -1,7 +1,11 @@
+from argparse import Namespace
+from cgi import test
 from random import choice, choices
 
 from cv2 import log
 from config import *
+from losses.contrastiveloss import ContrastiveLoss
+from model.simclr import ImageEmbedding
 from losses.mix import *
 from utils import *
 import numpy as np
@@ -101,7 +105,8 @@ class LightningTurtle(pl.LightningModule):
       self.train_loss  = 0
       img_id, logits = self.step(test_batch)
       predictions = logits.sigmoid().detach().cpu().numpy()
-      predictions = np.argsort(predictions, axis=1)[::-1][:, :5]
+      # predictions = np.argsort(predictions, axis=1)[:, ::-1][:, :5]
+      predictions = np.argsort(predictions)[:, -5:][:, ::-1]
       self.test_imgs.extend([i.split('/')[-1].split('.')[0] for i in img_id])
       self.test_probs.extend(predictions)
       # self.log(f'test_loss_fold_{self.fold}', loss, on_epoch=True, sync_dist=True) 
@@ -165,7 +170,68 @@ class LightningTurtle(pl.LightningModule):
     # print(self.epoch_end_output)
     # self.epoch_end_output = []
     # print(np.array(self.test_imgs).shape, np.array(self.test_probs).shape)
+    # print(self.test_probs)
     test_probs = np.array([id_class[i] for i in np.array(self.test_probs).reshape(-1)]).reshape(-1, 5)
     # print(test_probs)
     test_df = pd.DataFrame({'image_id':self.test_imgs, 'prediction1':test_probs[:, 0], 'prediction2':test_probs[:, 1], 'prediction3':test_probs[:, 2], 'prediction4':test_probs[:, 3], 'prediction5':test_probs[:, 4]})
     test_df.to_csv(f'SUBMISSION.csv', index=False)
+
+
+class ImageEmbeddingModule(pl.LightningModule):
+    def __init__(self, hparams):
+        hparams = Namespace(**hparams) if isinstance(hparams, dict) else hparams
+        super().__init__()
+        self.hparams = hparams
+        self.model = ImageEmbedding()
+        self.loss = ContrastiveLoss(hparams.batch_size)
+    
+    def total_steps(self):
+        return len(self.train_dataloader()) // self.hparams.epochs
+    
+    def train_dataloader(self):
+        return DataLoader(PretrainingDatasetWrapper(stl10_unlabeled, 
+                                             debug=getattr(self.hparams, "debug", False)),
+                          batch_size=self.hparams.batch_size, 
+                          num_workers=cpu_count(),
+                          sampler=SubsetRandomSampler(list(range(hparams.train_size))),
+                         drop_last=True)
+    
+    def val_dataloader(self):
+        return DataLoader(PretrainingDatasetWrapper(stl10_unlabeled,
+                                            debug=getattr(self.hparams, "debug", False)),
+                          batch_size=self.hparams.batch_size, 
+                          shuffle=False,
+                          num_workers=cpu_count(),
+                          sampler=SequentialSampler(list(range(hparams.train_size + 1, hparams.train_size + hparams.validation_size))),
+                         drop_last=True)
+    
+    def forward(self, X):
+        return self.model(X)
+    
+    def step(self, batch, step_name = "train"):
+        (X, Y), y = batch
+        embX, projectionX = self.forward(X)
+        embY, projectionY = self.forward(Y)
+        loss = self.loss(projectionX, projectionY)
+        loss_key = f"{step_name}_loss"
+        tensorboard_logs = {loss_key: loss}
+
+        return { ("loss" if step_name == "train" else loss_key): loss, 'log': tensorboard_logs,
+                        "progress_bar": {loss_key: loss}}
+    
+    def training_step(self, batch, batch_idx):
+        return self.step(batch, "train")
+    
+    def validation_step(self, batch, batch_idx):
+        return self.step(batch, "val")
+    
+    def validation_end(self, outputs):
+        if len(outputs) == 0:
+            return {"val_loss": torch.tensor(0)}
+        else:
+            loss = torch.stack([x["val_loss"] for x in outputs]).mean()
+            return {"val_loss": loss, "log": {"val_loss": loss}}
+
+    def configure_optimizers(self):
+        optimizer = RMSprop(self.model.parameters(), lr=self.hparams.lr)
+        return [optimizer], []
