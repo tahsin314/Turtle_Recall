@@ -20,25 +20,33 @@ from utils import *
 import warnings
 warnings.filterwarnings('ignore')
 class TurtleDataset(Dataset):
-    def __init__(self, image_ids, labels=None, dim=256, num_class=7, transforms=None):
+    def __init__(self, image_ids, labels=None, dim=256, num_class=7, embedding=False, transforms=None):
         super().__init__()
         self.image_ids = image_ids
         self.labels = labels
         self.dim = dim
         self.num_class = num_class
+        self.embedding = embedding
         self.transforms = transforms
         
     def __getitem__(self, idx):
         image_id = self.image_ids[idx]
         image = cv2.imread(image_id).astype(np.float32)
         image = cv2.resize(image, (self.dim, self.dim))
+        image2 = image.copy()
         if self.transforms is not None:
             aug = self.transforms(image=image)
             image = aug['image']
-        image = image.transpose((2, 0, 1))
+        image = image.transpose((2, 0, 1))/255.
+        if self.embedding:
+            aug2 = self.transforms(image=image2)
+            image2 = aug2['image']
+            image2 = image2.transpose((2, 0, 1))/255.
         if self.labels is not None:
             target = self.onehot(self.num_class, self.labels[idx]) 
             return image_id, image, target
+        elif self.embedding and not self.labels:
+            return image_id, image, image2
         else:
             return image_id, image
 
@@ -52,6 +60,7 @@ class TurtleDataset(Dataset):
     
     def get_labels(self):
         return list(self.labels)
+
 
 class TurtleDataModule(pl.LightningDataModule):
     def __init__(self, train_ds, valid_ds, test_ds, 

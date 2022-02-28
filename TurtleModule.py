@@ -177,52 +177,51 @@ class LightningTurtle(pl.LightningModule):
     test_df.to_csv(f'SUBMISSION.csv', index=False)
 
 
-class ImageEmbeddingModule(pl.LightningModule):
-    def __init__(self, hparams):
-        hparams = Namespace(**hparams) if isinstance(hparams, dict) else hparams
+class ImageEmbeddingTurtle(pl.LightningModule):
+    def __init__(self, model, optim, plist, 
+  batch_size, lr_scheduler, learning_rate, cyclic_scheduler=None):
         super().__init__()
-        self.hparams = hparams
-        self.model = ImageEmbedding()
-        self.loss = ContrastiveLoss(hparams.batch_size)
+        self.cyclic_scheduler = cyclic_scheduler
+        self.model = model
+        self.optim = optim
+        self.plist = plist
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.lr_scheduler = lr_scheduler
+        self.loss = ContrastiveLoss(self.batch_size)
+        self.train_loss = 0
+        self.embedding = []
+        self.img_id = []
     
-    def total_steps(self):
-        return len(self.train_dataloader()) // self.hparams.epochs
+    # def total_steps(self):
+    #     return len(self.train_dataloader()) // self.hparams.epochs
     
-    def train_dataloader(self):
-        return DataLoader(PretrainingDatasetWrapper(stl10_unlabeled, 
-                                             debug=getattr(self.hparams, "debug", False)),
-                          batch_size=self.hparams.batch_size, 
-                          num_workers=cpu_count(),
-                          sampler=SubsetRandomSampler(list(range(hparams.train_size))),
-                         drop_last=True)
-    
-    def val_dataloader(self):
-        return DataLoader(PretrainingDatasetWrapper(stl10_unlabeled,
-                                            debug=getattr(self.hparams, "debug", False)),
-                          batch_size=self.hparams.batch_size, 
-                          shuffle=False,
-                          num_workers=cpu_count(),
-                          sampler=SequentialSampler(list(range(hparams.train_size + 1, hparams.train_size + hparams.validation_size))),
-                         drop_last=True)
-    
-    def forward(self, X):
-        return self.model(X)
+    def forward(self, x):
+        out = self.model(x)
+        # out = out.type_as(x)
+        return out
     
     def step(self, batch, step_name = "train"):
-        (X, Y), y = batch
+        _, X, Y = batch
         embX, projectionX = self.forward(X)
         embY, projectionY = self.forward(Y)
         loss = self.loss(projectionX, projectionY)
-        loss_key = f"{step_name}_loss"
-        tensorboard_logs = {loss_key: loss}
+        # loss_key = f"{step_name}_loss"
+        # self.log = {loss_key: loss}
 
-        return { ("loss" if step_name == "train" else loss_key): loss, 'log': tensorboard_logs,
-                        "progress_bar": {loss_key: loss}}
+        return loss
     
     def training_step(self, batch, batch_idx):
+        loss = self.step(batch, step_name = "train")
+        self.train_loss  += loss.detach()
+        # print(self.train_loss/batch_idx)
+        self.log(f'train_loss', self.train_loss/batch_idx, prog_bar=True)
+        if self.cyclic_scheduler is not None:
+          self.cyclic_scheduler.step()
         return self.step(batch, "train")
     
     def validation_step(self, batch, batch_idx):
+        self.train_loss  = 0
         return self.step(batch, "val")
     
     def validation_end(self, outputs):
@@ -231,7 +230,27 @@ class ImageEmbeddingModule(pl.LightningModule):
         else:
             loss = torch.stack([x["val_loss"] for x in outputs]).mean()
             return {"val_loss": loss, "log": {"val_loss": loss}}
+    
+    def test_step(self, test_batch, batch_idx):
+      img_id, X, Y = test_batch
+      emb, proj = self.forward(X)
+      self.img_id.extend(img_id)
+      self.embedding.extend(proj.detach().cpu().numpy())
+
+    def test_epoch_end(self, outputs):
+        # results = {'img_id': self.img_id, 'embedding': self.embedding}
+        np.save(f'embedding.npy', np.array(self.embedding))
+        np.save(f'img_id.npy', np.array(self.img_id))
+        self.embedding = []
+        self.img_id = []
 
     def configure_optimizers(self):
-        optimizer = RMSprop(self.model.parameters(), lr=self.hparams.lr)
-        return [optimizer], []
+        optimizer = self.optim(self.plist, self.learning_rate, weight_decay = 0.1)
+        lr_sc = self.lr_scheduler(optimizer, mode='max', factor=0.5, 
+        patience=patience, verbose=True, threshold=1e-4, threshold_mode='rel', cooldown=0, min_lr=1e-7, eps=1e-08)
+        return ({
+       'optimizer': optimizer,
+       'lr_scheduler': lr_sc,
+       'monitor': f'train_loss',
+       'cyclic_scheduler': self.cyclic_scheduler}
+        )

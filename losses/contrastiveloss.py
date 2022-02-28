@@ -2,8 +2,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-class ContrastiveLossELI5(nn.Module):
-    def __init__(self, batch_size, temperature=0.5, verbose=True):
+class ContrastiveLoss(nn.Module):
+    def __init__(self, batch_size, temperature=0.5, verbose=False):
         super().__init__()
         self.batch_size = batch_size
         self.register_buffer("temperature", torch.tensor(temperature))
@@ -27,12 +27,12 @@ class ContrastiveLossELI5(nn.Module):
             if self.verbose: print(f"sim({i}, {j})={sim_i_j}")
                 
             numerator = torch.exp(sim_i_j / self.temperature)
-            one_for_not_i = torch.ones((2 * self.batch_size, )).to(emb_i.device).scatter_(0, torch.tensor([i]), 0.0)
+            one_for_not_i = torch.ones((2 * self.batch_size, )).to(emb_i.device).scatter_(0, torch.tensor([i]).to(emb_i.device), 0.0)
             if self.verbose: print(f"1{{k!={i}}}",one_for_not_i)
             
             denominator = torch.sum(
                 one_for_not_i * torch.exp(similarity_matrix[i, :] / self.temperature)
-            )    
+            )   
             if self.verbose: print("Denominator", denominator)
                 
             loss_ij = -torch.log(numerator / denominator)

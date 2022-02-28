@@ -16,7 +16,7 @@ from losses.arcface import ArcFaceLoss
 from losses.focal import criterion_margin_focal_binary_cross_entropy
 from model.effnet import EffNet
 from utils import *
-# from albumentations.augmentations.transforms import Equalize, Posterize, Downscale, Rotate 
+from albumentations.augmentations.transforms import Equalize, Posterize, Downscale, Solarize 
 from albumentations import (
     PadIfNeeded, HorizontalFlip, VerticalFlip, CenterCrop,  RandomSizedCrop,  
     RandomCrop, Resize, Crop, Compose, HueSaturationValue,
@@ -85,11 +85,13 @@ os.makedirs(model_dir, exist_ok=True)
 os.makedirs(history_dir, exist_ok=True)
 class_id, id_class = get_class_id(data_dir, 'train.csv')
 df1 = pd.read_csv(os.path.join(data_dir, 'train.csv'))
+print(len(df1))
 df2 = pd.read_csv(os.path.join(data_dir, 'extra_images.csv'))
 df = pd.concat([df1, df2])
 df.to_csv(os.path.join(data_dir, 'extra_train.csv'), index=False)
 df = get_data(data_dir, 'extra_train.csv', class_id, n_fold, SEED)
-print(df.target.unique())
+df1 = get_data(data_dir, 'train.csv', class_id, n_fold, SEED)
+print(len(df1))
 # extra_df = get_data(data_dir, 'extra_images.csv', class_id, n_fold, SEED)
 
 # print(df.head(20))
@@ -98,7 +100,7 @@ valid_df = df[df['fold'] == val_fold]
 test_df = get_data(data_dir, 'test.csv', class_id, None, random_state=SEED)
 # test_df = df[df['fold'] == test_fold]
 # test_df2 = get_test_data(test_image_path, 5, SEED)
-print(len(df), len(train_df), len(valid_df), len(test_df))
+# print(len(df), len(train_df), len(valid_df), len(test_df))
 
 # train_aug = Compose([
 #   ShiftScaleRotate(p=0.4,rotate_limit=360, border_mode= cv2.BORDER_CONSTANT, value=[0, 0, 0], scale_limit=0.25),
@@ -150,3 +152,23 @@ train_aug = Compose([
       )
       
 val_aug = Compose([Resize(sz, sz, p=1, always_apply=True)])
+
+simclr_augment = Compose([
+    OneOf([
+        Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
+        GaussNoise(var_limit=0.1),
+        ShiftScaleRotate(p=0.4,rotate_limit=45, border_mode= cv2.BORDER_REFLECT101, value=[0, 0, 0], scale_limit=0.25),
+        HorizontalFlip(0.4),
+        VerticalFlip(0.4),
+        Solarize(p=0.4),
+        Posterize(num_bits=2, p=0.4),
+        RandomBrightnessContrast(brightness_limit=0.5, contrast_limit=0.5, p=0.4),
+    ], p=0.90),
+    # HorizontalFlip(0.4),
+    # VerticalFlip(0.4),
+    # Rotate(limit=360, border_mode=2, p=0.4), 
+    Resize(sz, sz, p=1, always_apply=True),
+    RandomSizedCrop(min_max_height=(int(sz*0.8), int(sz*0.8)), height=sz, width=sz, p=0.4),
+    Resize(sz, sz, p=1, always_apply=True)
+    ],    
+      )

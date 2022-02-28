@@ -13,8 +13,12 @@ class ImageEmbedding(nn.Module):
         super().__init__()
         
         self.backbone = timm.create_model(model_name, pretrained=True, in_chans=3)
-        internal_embedding_size = self.backbone._fc.in_features
-        self.backbone._fc = ImageEmbedding.Identity()
+        try:
+            internal_embedding_size = self.backbone.classifier.in_features
+            self.backbone.classifier = Identity()
+        except:
+            internal_embedding_size = self.backbone.fc.in_features
+            self.backbone.fc = Identity()
         
         self.embedding = self.backbone
         

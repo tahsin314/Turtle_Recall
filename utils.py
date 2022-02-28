@@ -92,6 +92,14 @@ def mapk(actual, predicted, k=5):
   predicted = np.argsort(predicted)[:, -k:][:, ::-1]
   return np.mean([apk(a, p, k) for a, p in zip(actual, predicted)])
 
+def cosine_similarity(x1, x2):
+    x1 = (x1 - x1.min()) / (x1.max() - x1.min())
+    x2 = (x2 - x2.min()) / (x2.max() - x2.min())
+    d = np.dot(x1, x2.T)
+    n = np.sqrt(np.sum(x1**2, axis=1)).reshape(-1, 1) * np.sqrt(np.sum(x2**2, axis=1)).reshape(1, -1)
+    return np.divide(d, n)
+
+
 def get_test_data(dirname, n_fold=5, random_state=42):
     
     paths = []
