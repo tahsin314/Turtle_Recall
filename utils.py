@@ -93,8 +93,14 @@ def mapk(actual, predicted, k=5):
   return np.mean([apk(a, p, k) for a, p in zip(actual, predicted)])
 
 def cosine_similarity(x1, x2):
-    x1 = (x1 - x1.min()) / (x1.max() - x1.min())
-    x2 = (x2 - x2.min()) / (x2.max() - x2.min())
+    x1_m = np.mean(x1, axis=1)
+    x1_v = np.var(x1, axis=1)
+    x2_m = np.mean(x2, axis=1)
+    x2_v = np.var(x2, axis=1)
+    x1 = (x1 - np.mean(x1))/np.var(x1)
+    x2 = (x2 - np.mean(x2))/np.var(x2)
+    # x1 = (x1 - x1.min()) / (x1.max() - x1.min())
+    # x2 = (x2 - x2.min()) / (x2.max() - x2.min())
     d = np.dot(x1, x2.T)
     n = np.sqrt(np.sum(x1**2, axis=1)).reshape(-1, 1) * np.sqrt(np.sum(x2**2, axis=1)).reshape(1, -1)
     return np.divide(d, n)

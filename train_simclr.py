@@ -82,7 +82,7 @@ for f in range(n_fold):
     # data_module = TurtleDataModule(base, optimizer, plist, batch_size, lr_reduce_scheduler,
     # learning_rate, cyclic_scheduler)
     data_module = TurtleDataModule(train_ds, valid_ds, test_ds,  sampler= sampler,
-    batch_size=batch_size)
+    batch_size=batch_size, shuffle=False)
     # cyclic_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer(plist, 
     # lr=learning_rate), learning_rate/5, 4*learning_rate/5, step_size_up=3*len(data_module.train_dataloader()), 
     # step_size_down=1*len(data_module.train_dataloader()), mode='exp_range', gamma=1.0, scale_fn=None, scale_mode='cycle', 
