@@ -97,10 +97,10 @@ def cosine_similarity(x1, x2):
     x1_v = np.var(x1, axis=1)
     x2_m = np.mean(x2, axis=1)
     x2_v = np.var(x2, axis=1)
-    x1 = (x1 - np.mean(x1))/np.var(x1)
-    x2 = (x2 - np.mean(x2))/np.var(x2)
-    # x1 = (x1 - x1.min()) / (x1.max() - x1.min())
-    # x2 = (x2 - x2.min()) / (x2.max() - x2.min())
+    for i in range(x1.shape[0]):
+      x1[i, :] = (x1[i, :] - x1_m[i])/x1_v[i]
+    for i in range(x2.shape[0]):
+      x2[i, :] = (x2[i, :] - x2_m[i])/x2_v[i]
     d = np.dot(x1, x2.T)
     n = np.sqrt(np.sum(x1**2, axis=1)).reshape(-1, 1) * np.sqrt(np.sum(x2**2, axis=1)).reshape(1, -1)
     return np.divide(d, n)
