@@ -9,7 +9,7 @@ class Identity(nn.Module):
 
 class ImageEmbedding(nn.Module):       
         
-    def __init__(self, model_name='tf_efficientnet_b2', embedding_size=1024):
+    def __init__(self, model_name='tf_efficientnet_b2', embedding_size=100):
         super().__init__()
         
         self.backbone = timm.create_model(model_name, pretrained=True, in_chans=3)

@@ -44,7 +44,7 @@ else:
   wandb.init(project="Turtle", config=params, settings=wandb.Settings(start_method='fork'))
   wandb.run.name= model_name
 
-optimizer = optim.RMSprop
+optimizer = optim.Adam
 # base_criterion = nn.BCEWithLogitsLoss(reduction='sum')
 base_criterion = criterion_margin_focal_binary_cross_entropy
 # mixup_criterion_ = partial(mixup_criterion, criterion=base_criterion, rate=1.0)
@@ -66,10 +66,10 @@ for f in range(n_fold):
         {'params': base.parameters(),  'lr': learning_rate},
         # {'params': base.head.parameters(),  'lr': learning_rate}
     ]
-    train_ds = TurtleDataset(list(df1.path.values)+list(test_df.path.values), None, dim=sz, num_class=num_class,
-    embedding=True, transforms=train_aug)
+    train_ds = TurtleDataset(list(df.path.values)+list(test_df.path.values), None, dim=sz, num_class=num_class,
+    embedding=True, transforms=simclr_augment)
 
-    valid_ds = TurtleDataset(list(df1.path.values)+list(test_df.path.values), None, dim=sz, num_class=num_class, 
+    valid_ds = TurtleDataset(list(test_df.path.values), None, dim=sz, num_class=num_class, 
     embedding=True, transforms=val_aug)
 
     test_ds = TurtleDataset(test_df.path.values, None, dim=sz,num_class=num_class, 
@@ -178,7 +178,7 @@ for f in range(n_fold):
     # data_module = TurtleDataModule(base, optimizer, plist, batch_size, lr_reduce_scheduler,
     # learning_rate, cyclic_scheduler)
     data_module = TurtleDataModule(train_ds, valid_ds, test_ds,  sampler= sampler,
-    batch_size=batch_size)
+    batch_size=batch_size, shuffle=False)
     model2 = ImageEmbeddingTurtle.load_from_checkpoint(chk_path, model=base, optim=optimizer, plist=plist,
     batch_size= batch_size, lr_scheduler= lr_reduce_scheduler,
     learning_rate=learning_rate, cyclic_scheduler=cyclic_scheduler)
@@ -187,11 +187,12 @@ for f in range(n_fold):
     trainer.test(model=model2, test_dataloaders=data_module.test_dataloader())
     TEST_Z = np.load('embedding.npy', allow_pickle=True)
     TEST_IMG_ID = np.load('img_id.npy', allow_pickle=True)
-    
+    np.save('embedding_test.npy', TEST_Z)
     # print(TEST_Z.shape)
     trainer.test(model=model2, test_dataloaders=data_module.train_dataloader())
     TRAIN_Z = np.load('embedding.npy', allow_pickle=True)
     TRAIN_IMG_ID = np.load('img_id.npy', allow_pickle=True)
+    np.save('embedding_train.npy', TRAIN_Z)
     similarity_matrix = cosine_similarity(TRAIN_Z, TEST_Z)
     # plt.figure(figsize=(20,20))
     plt.imshow(similarity_matrix.astype(np.float), cmap='hot', interpolation='nearest')
@@ -238,7 +239,7 @@ for f in range(n_fold):
     ss.loc[ss.score1.map(lambda x: float(x))<thresh, 'prediction3'] = ss[ss.score1.map(lambda x: float(x))<thresh]['prediction2']
     ss.loc[ss.score1.map(lambda x: float(x))<thresh, 'prediction2'] = ss[ss.score1.map(lambda x: float(x))<thresh]['prediction1']
     ss.loc[ss.score1.map(lambda x: float(x))<thresh, 'prediction1'] = 'new_turtle'
-    ss[ss.columns[:6]].to_csv('contrastive_learning_jax_demo.csv', index=False)
+    ss[ss.columns[:6]].to_csv('submission.csv', index=False)
     # CAM Generation
     model2.eval()
     # plot_heatmap(model2, test_df, val_aug, cam_layer_name=cam_layer_name, num_class=num_class, sz=sz)

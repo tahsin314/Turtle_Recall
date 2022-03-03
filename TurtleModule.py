@@ -245,7 +245,7 @@ class ImageEmbeddingTurtle(pl.LightningModule):
         self.img_id = []
 
     def configure_optimizers(self):
-        optimizer = self.optim(self.plist, self.learning_rate, weight_decay = 0.1)
+        optimizer = self.optim(self.plist, self.learning_rate, weight_decay = 1e-4)
         lr_sc = self.lr_scheduler(optimizer, mode='max', factor=0.5, 
         patience=patience, verbose=True, threshold=1e-4, threshold_mode='rel', cooldown=0, min_lr=1e-7, eps=1e-08)
         return ({

@@ -31,22 +31,28 @@ class TurtleDataset(Dataset):
         
     def __getitem__(self, idx):
         image_id = self.image_ids[idx]
-        image = cv2.imread(image_id).astype(np.float32)
+        image = cv2.imread(image_id)
+        # Center Crop
+        center = np.array(list(image.shape)) / 2
+        crop_size = min(image.shape[0], image.shape[1])
+        x = center[1] - crop_size/2
+        y = center[0] - crop_size/2
+
+        image = image[int(y):int(y+crop_size), int(x):int(x+crop_size)]
+        ######
         image = cv2.resize(image, (self.dim, self.dim))
         image2 = image.copy()
         if self.transforms is not None:
-            aug = self.transforms(image=image)
+            aug = self.transforms(image=image.astype(np.uint8))
             image = aug['image']
         image = image.transpose((2, 0, 1))/255.
         if self.embedding:
-            aug2 = self.transforms(image=image2)
-            image2 = aug2['image']
             image2 = image2.transpose((2, 0, 1))/255.
         if self.labels is not None:
             target = self.onehot(self.num_class, self.labels[idx]) 
             return image_id, image, target
         elif self.embedding and not self.labels:
-            return image_id, image, image2
+            return image_id, image.astype(np.float32), image2.astype(np.float32)
         else:
             return image_id, image
 

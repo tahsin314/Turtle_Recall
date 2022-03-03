@@ -9,9 +9,7 @@ import torch
 from torch import optim
 from augmentations.augmix import RandomAugMix
 from augmentations.gridmask import GridMask
-from augmentations.hair import Hair, AdvancedHairAugmentationAlbumentations
-from augmentations.microscope import MicroscopeAlbumentations
-from augmentations.color_constancy import ColorConstancy
+from augmentations.randaug import randAugment
 from losses.arcface import ArcFaceLoss
 from losses.focal import criterion_margin_focal_binary_cross_entropy
 from model.effnet import EffNet
@@ -153,22 +151,24 @@ train_aug = Compose([
       
 val_aug = Compose([Resize(sz, sz, p=1, always_apply=True)])
 
-simclr_augment = Compose([
-    OneOf([
-        Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
-        GaussNoise(var_limit=0.1),
-        ShiftScaleRotate(p=0.4,rotate_limit=45, border_mode= cv2.BORDER_REFLECT101, value=[0, 0, 0], scale_limit=0.25),
-        HorizontalFlip(0.4),
-        VerticalFlip(0.4),
-        Solarize(p=0.4),
-        Posterize(num_bits=2, p=0.4),
-        RandomBrightnessContrast(brightness_limit=0.5, contrast_limit=0.5, p=0.4),
-    ], p=0.90),
-    # HorizontalFlip(0.4),
-    # VerticalFlip(0.4),
-    # Rotate(limit=360, border_mode=2, p=0.4), 
-    Resize(sz, sz, p=1, always_apply=True),
-    RandomSizedCrop(min_max_height=(int(sz*0.8), int(sz*0.8)), height=sz, width=sz, p=0.4),
-    Resize(sz, sz, p=1, always_apply=True)
-    ],    
-      )
+# simclr_augment = Compose([
+#     OneOf([
+#         Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
+#         GaussNoise(var_limit=0.1),
+#         ShiftScaleRotate(p=0.4,rotate_limit=45, border_mode= cv2.BORDER_REFLECT101, value=[0, 0, 0], scale_limit=0.25),
+#         HorizontalFlip(0.4),
+#         VerticalFlip(0.4),
+#         Solarize(p=0.4),
+#         Posterize(num_bits=2, p=0.4),
+#         RandomBrightnessContrast(brightness_limit=0.5, contrast_limit=0.5, p=0.4),
+#     ], p=0.90),
+#     # HorizontalFlip(0.4),
+#     # VerticalFlip(0.4),
+#     # Rotate(limit=360, border_mode=2, p=0.4), 
+#     Resize(sz, sz, p=1, always_apply=True),
+#     RandomSizedCrop(min_max_height=(int(sz*0.8), int(sz*0.8)), height=sz, width=sz, p=0.4),
+#     Resize(sz, sz, p=1, always_apply=True)
+#     ],    
+#       )
+
+simclr_augment, _ = randAugment(2, 2, 1.0, 'all')
