@@ -84,7 +84,16 @@ np.random.seed(SEED)
 os.makedirs(model_dir, exist_ok=True)
 os.makedirs(history_dir, exist_ok=True)
 class_id, id_class = get_class_id(data_dir, 'train.csv')
-df = get_data(data_dir, 'train.csv', class_id, n_fold, SEED)
+df1 = pd.read_csv(os.path.join(data_dir, 'train.csv'))
+df1 = df1[['image_id', 'turtle_id']]
+print(len(df1))
+df2 = pd.read_csv(os.path.join(data_dir, 'extra_images.csv'))
+df = pd.concat([df1, df2])
+# df.to_csv(os.path.join('./', 'extra_train.csv'), index=False)
+# df = get_data(data_dir, 'extra_train.csv', class_id, n_fold, SEED)
+df1 = get_data(data_dir, 'train.csv', class_id, n_fold, SEED)
+print(len(df1))
+df = df1.copy()
 train_df = df[df['fold'] != val_fold] 
 valid_df = df[df['fold'] == val_fold]
 test_df = get_data(data_dir, 'test.csv', class_id, None, random_state=SEED)

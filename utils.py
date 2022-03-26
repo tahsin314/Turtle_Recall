@@ -28,6 +28,7 @@ def seed_everything(seed):
 def get_class_id(dirname, csvfile):
     df = pd.read_csv(os.path.join(dirname, csvfile))
     classes = df['turtle_id'].unique()
+    classes = np.append(classes, 'new_turtle')
     class_id = {c: i for i, c in enumerate(classes)}
     id_class = {i: c for i, c in enumerate(classes)}
     return class_id, id_class
@@ -36,9 +37,9 @@ def get_data(dirname, csvfile, class_id, n_fold=5, random_state=42):
     
     val_idx = []
     df = pd.read_csv(os.path.join(dirname, csvfile))
-    df['path'] = df['image_id'].apply(lambda x: os.path.join(dirname, 'train', f"{x}.JPG"))
+    df['path'] = df['image_id'].apply(lambda x: os.path.join(dirname, 'images', f"{x}.JPG"))
     if n_fold:
-        df['target'] = df['turtle_id'].apply(lambda x: class_id[x])
+        df['target'] = df['turtle_id'].apply(lambda x: class_id[x] if x in class_id.keys() else class_id['new_turtle'])
         skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=random_state)
         for i, (train_index, val_index) in enumerate(skf.split(df['path'], df['turtle_id'])):
             train_idx = train_index

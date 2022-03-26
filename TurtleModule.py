@@ -101,7 +101,7 @@ class LightningTurtle(pl.LightningModule):
       self.train_loss  = 0
       img_id, logits = self.step(test_batch)
       predictions = logits.sigmoid().detach().cpu().numpy()
-      predictions = np.argsort(predictions, axis=1)[::-1][:, :5]
+      predictions = np.argsort(predictions)[:, -5:][:, ::-1]
       self.test_imgs.extend([i.split('/')[-1].split('.')[0] for i in img_id])
       self.test_probs.extend(predictions)
       # self.log(f'test_loss_fold_{self.fold}', loss, on_epoch=True, sync_dist=True) 

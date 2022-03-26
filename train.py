@@ -106,6 +106,7 @@ for f in range(n_fold):
     cyclic_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer(plist, 
     lr=learning_rate), 
     5*len(data_module.train_dataloader()), 1, learning_rate/5, -1)
+    # cyclic_scheduler = None
     # cyclic_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer(plist, 
     # lr=learning_rate), learning_rate/5, 4*learning_rate/5, step_size_up=3*len(data_module.train_dataloader()), 
     # step_size_down=1*len(data_module.train_dataloader()), mode='exp_range', gamma=1.0, scale_fn=None, scale_mode='cycle', 
