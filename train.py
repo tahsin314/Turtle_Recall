@@ -25,8 +25,8 @@ from catalyst.data.sampler import BalanceClassSampler
 from losses.ohem import ohem_loss
 from losses.mix import MixupLoss, mixup, MixupLoss
 from losses.regression_loss import *
-from losses.focal import (criterion_margin_focal_binary_cross_entropy,
-FocalLoss, FocalCosineLoss)
+from losses.focal import (FocalLossSoftmax, criterion_margin_focal_binary_cross_entropy,
+FocalLoss, FocalCosineLoss, softmax_focal_loss)
 from utils import *
 from model.effnet import EffNet
 from model.resne_t import (Resne_t, 
@@ -51,7 +51,8 @@ else:
 
 optimizer = optim.AdamW
 # base_criterion = nn.BCEWithLogitsLoss(reduction='sum')
-base_criterion = criterion_margin_focal_binary_cross_entropy
+# base_criterion = criterion_margin_focal_binary_cross_entropy
+base_criterion = FocalLossSoftmax()
 # mixup_criterion_ = partial(mixup_criterion, criterion=base_criterion, rate=1.0)
 mixup_criterion = MixupLoss(base_criterion, 1.0)
 # ohem_criterion = partial(ohem_loss, rate=1.0, base_crit=base_criterion)

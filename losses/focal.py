@@ -69,3 +69,32 @@ def criterion_margin_focal_binary_cross_entropy(logit, truth):
     loss = margin + weight*(1 - prob) ** gamma * log_prob
     # loss = loss.mean()
     return loss.sum()
+
+# https://gist.github.com/samson-wang/e5cee676f2ae97795356d9c340d1ec7f
+def softmax_focal_loss(x, target, gamma=2., alpha=0.25):
+    n = x.shape[0]
+    device = target.device
+    range_n = torch.arange(0, n, dtype=torch.int64, device=device)
+
+    pos_num =  float(x.shape[1])
+    p = torch.softmax(x, dim=1)
+    p = p[range_n, target]
+    loss = -(1-p)**gamma*alpha*torch.log(p)
+    return torch.sum(loss) / pos_num
+
+class FocalLossSoftmax(nn.Module):
+
+    def __init__(self, gamma=0, eps=1e-7):
+        super(FocalLossSoftmax, self).__init__()
+        self.gamma = gamma
+        self.eps = eps
+
+    def forward(self, input, target):
+        # y = one_hot(target, input.size(-1))
+        logit = F.softmax(input, dim=-1)
+        logit = logit.clamp(self.eps, 1. - self.eps)
+
+        loss = -1 * target * torch.log(logit) # cross entropy
+        loss = loss * (1 - logit) ** self.gamma # focal loss
+
+        return loss.sum()

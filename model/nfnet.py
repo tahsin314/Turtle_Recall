@@ -24,7 +24,7 @@ class NFNet(nn.Module):
     def __init__(self, model_name='nfnet_l0', num_class=2):
         super().__init__()
         self.backbone = timm.create_model(model_name, 
-        pretrained=True, in_chans=1)
+        pretrained=True, in_chans=3)
         self.in_features = self.backbone.head.fc.in_features
         self.head = Head(self.in_features,num_class, activation='mish')
         self.out = nn.Linear(self.in_features, num_class)

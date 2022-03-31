@@ -38,6 +38,7 @@ class LightningTurtle(pl.LightningModule):
       self.test_imgs = []
       self.test_probs = []
       self.epoch_end_output = [] # Ugly hack for gathering results from multiple GPUs
+      self.softmax = nn.Softmax(dim=1)
   
   def forward(self, x):
       out = self.model(x)
@@ -100,10 +101,14 @@ class LightningTurtle(pl.LightningModule):
       self.criterion = self.loss_fns[0]
       self.train_loss  = 0
       img_id, logits = self.step(test_batch)
-      predictions = logits.sigmoid().detach().cpu().numpy()
-      predictions = np.argsort(predictions)[:, -5:][:, ::-1]
+      predictions = self.softmax(logits).detach().cpu().numpy()
+      predictions_id = np.argsort(predictions)[:, -5:][:, ::-1]
+      predictions_k = np.sort(predictions, 1)[:, ::-1][:, :5]
+      # for i, p in enumerate(predictions_k):
+      #   if p[-1] <= 1/100:
+      #     predictions_id[i, -1] = 100
       self.test_imgs.extend([i.split('/')[-1].split('.')[0] for i in img_id])
-      self.test_probs.extend(predictions)
+      self.test_probs.extend(predictions_id)
       # self.log(f'test_loss_fold_{self.fold}', loss, on_epoch=True, sync_dist=True) 
       # test_log = {'img_id':[i.split('/')[-1].split('.')[0] for i in img_id], 'probs':logits}
       # # print(logits.size())

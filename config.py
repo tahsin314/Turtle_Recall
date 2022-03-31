@@ -86,20 +86,22 @@ os.makedirs(history_dir, exist_ok=True)
 class_id, id_class = get_class_id(data_dir, 'train.csv')
 df1 = pd.read_csv(os.path.join(data_dir, 'train.csv'))
 df1 = df1[['image_id', 'turtle_id']]
-print(len(df1))
+# print(len(df1))
 df2 = pd.read_csv(os.path.join(data_dir, 'extra_images.csv'))
+df1 = df1[['image_id', 'turtle_id']]
 df = pd.concat([df1, df2])
-# df.to_csv(os.path.join('./', 'extra_train.csv'), index=False)
-# df = get_data(data_dir, 'extra_train.csv', class_id, n_fold, SEED)
+df.to_csv(os.path.join(data_dir, 'extra_train.csv'), index=False)
+df = get_data(data_dir, 'extra_train.csv', class_id, n_fold, SEED)
+
 df1 = get_data(data_dir, 'train.csv', class_id, n_fold, SEED)
-print(len(df1))
-df = df1.copy()
+# print(len(df1))
+# df = df1.copy()
 train_df = df[df['fold'] != val_fold] 
 valid_df = df[df['fold'] == val_fold]
 test_df = get_data(data_dir, 'test.csv', class_id, None, random_state=SEED)
 # test_df = df[df['fold'] == test_fold]
 # test_df2 = get_test_data(test_image_path, 5, SEED)
-print(len(df), len(train_df), len(valid_df), len(test_df))
+# print(len(df), len(train_df), len(valid_df), len(test_df))
 
 # train_aug = Compose([
 #   ShiftScaleRotate(p=0.4,rotate_limit=360, border_mode= cv2.BORDER_CONSTANT, value=[0, 0, 0], scale_limit=0.25),
@@ -137,10 +139,10 @@ print(len(df), len(train_df), len(valid_df), len(test_df))
 train_aug = Compose([
     OneOf([
         Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
-        GaussNoise(var_limit=0.1),
+        GaussNoise(var_limit=0.2),
         ShiftScaleRotate(p=0.4,rotate_limit=45, border_mode= cv2.BORDER_REFLECT101, value=[0, 0, 0], scale_limit=0.25)
 
-    ], p=0.20),
+    ], p=0.30),
     # HorizontalFlip(0.4),
     # VerticalFlip(0.4),
     # Rotate(limit=360, border_mode=2, p=0.4), 

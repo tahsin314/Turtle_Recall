@@ -40,14 +40,22 @@ def get_data(dirname, csvfile, class_id, n_fold=5, random_state=42):
     df['path'] = df['image_id'].apply(lambda x: os.path.join(dirname, 'images', f"{x}.JPG"))
     if n_fold:
         df['target'] = df['turtle_id'].apply(lambda x: class_id[x] if x in class_id.keys() else class_id['new_turtle'])
+        # print(len(df))
+        # df = df[df['target']!=class_id['new_turtle']]
+        # print(len(df))
+        # print(df.loc[1560, 'fold'])
+        # df = df.reindex(columns=['path', 'target'])
+        # df = df[['path', ]]
         skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=random_state)
-        for i, (train_index, val_index) in enumerate(skf.split(df['path'], df['turtle_id'])):
-            train_idx = train_index
+        for i, (_, val_index) in enumerate(skf.split(df['path'], df['target'])):
+            # print(val_index)
             val_idx = val_index
             df.loc[val_idx, 'fold'] = i
 
         df['fold'] = df['fold'].astype('int')
-
+    try:
+        df = df[df['target']!=class_id['new_turtle']]
+    except: pass
     return df
 
 def apk(actual, predicted, k=5):
