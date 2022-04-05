@@ -16,7 +16,7 @@ from model.effnet import EffNet
 from utils import *
 from albumentations.augmentations.transforms import Equalize, Posterize, Downscale, Solarize 
 from albumentations import (
-    PadIfNeeded, HorizontalFlip, VerticalFlip, CenterCrop,  RandomSizedCrop,  
+    PadIfNeeded, HorizontalFlip, VerticalFlip, CenterCrop,  RandomSizedCrop, Affine,  
     RandomCrop, Resize, Crop, Compose, HueSaturationValue,
     Transpose, RandomRotate90, ElasticTransform, GridDistortion, 
     OpticalDistortion, RandomSizedCrop, Resize, CenterCrop,

@@ -70,7 +70,7 @@ class TurtleDataset(Dataset):
 
 class TurtleDataModule(pl.LightningDataModule):
     def __init__(self, train_ds, valid_ds, test_ds, 
-    batch_size=32, sampler=None, shuffle=True, num_workers=4):
+    batch_size=32, sampler=None, shuffle=True, num_workers=0):
         super().__init__()
         self.train_ds = train_ds
         self.valid_ds = valid_ds

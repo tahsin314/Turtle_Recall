@@ -19,6 +19,7 @@ def randAugment(N, M, p, mode="all", cut_out = False):
         A.ShiftScaleRotate(shift_limit_y=shift_y[M], rotate_limit=0, shift_limit_x=0, shift_limit=shift_y[M], p=p),
         A.IAAAffine(rotate=rot[M], p=p),
         A.IAAAffine(shear=shear[M], p=p),
+        # A.Affine(scale=sola[M], p=p),
         A.InvertImg(p=p),
         #5 - Color Based
         A.Equalize(p=p),

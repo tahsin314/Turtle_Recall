@@ -38,10 +38,10 @@ seed_everything(SEED)
 os.system("rm -rf *.png *.csv")
 if mode == 'lr_finder':
   wandb.init(mode="disabled")
-  wandb_logger = WandbLogger(project="Turtle", config=params, settings=wandb.Settings(start_method='fork'))
+  wandb_logger = WandbLogger(project="Turtle", config=params)
 else:
-  wandb_logger = WandbLogger(project="Turtle", config=params, settings=wandb.Settings(start_method='fork'))
-  wandb.init(project="Turtle", config=params, settings=wandb.Settings(start_method='fork'))
+  wandb_logger = WandbLogger(project="Turtle", config=params)
+  wandb.init(project="Turtle", config=params)
   wandb.run.name= model_name
 
 optimizer = optim.Adam
@@ -130,7 +130,7 @@ for f in range(n_fold):
                       # stochastic_weight_avg=True,
                       # auto_scale_batch_size='power',
                       benchmark=True,
-                      distributed_backend=distributed_backend,
+                      # distributed_backend=distributed_backend,
                       # plugins='deepspeed', # Not working 
                       # early_stop_callback=False,
                       progress_bar_refresh_rate=1, 

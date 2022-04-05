@@ -14,7 +14,7 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 from tqdm import tqdm as T
 from gradcam.gradcam import GradCAM, GradCAMpp
-from captum.attr import LRP 
+# from captum.attr import LRP 
 
 
 def seed_everything(seed):
@@ -37,7 +37,7 @@ def get_data(dirname, csvfile, class_id, n_fold=5, random_state=42):
     
     val_idx = []
     df = pd.read_csv(os.path.join(dirname, csvfile))
-    df['path'] = df['image_id'].apply(lambda x: os.path.join(dirname, 'train', f"{x}.JPG"))
+    df['path'] = df['image_id'].apply(lambda x: os.path.join(dirname, 'images', f"{x}.JPG"))
     if n_fold:
         df['target'] = df['turtle_id'].apply(lambda x: class_id[x] if x in class_id.keys() else class_id['new_turtle'])
         skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=random_state)
