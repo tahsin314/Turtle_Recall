@@ -26,23 +26,24 @@ class FocalLoss(nn.Module):
             return F_loss
 
 class FocalCosineLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=2, xent=.1):
+    def __init__(self, alpha=1, gamma=2, xent=.1, reduction="mean", device="cuda:2"):
         super(FocalCosineLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
-
         self.xent = xent
+        self.reduction = reduction
+        self.y = torch.Tensor([1]).to(device)
 
-        self.y = torch.Tensor([1]).cuda()
+    def forward(self, input, target):
+        target = target.long()
+        cosine_loss = F.cosine_embedding_loss(input, target, self.y, reduction=self.reduction)
 
-    def forward(self, input, target, reduction="mean"):
-        cosine_loss = F.cosine_embedding_loss(input, target, self.y, reduction=reduction)
-
-        cent_loss = F.cross_entropy(F.normalize(input), target, reduce=False)
+        cent_loss = F.cross_entropy(F.normalize(input), torch.max(target, 1)[1], reduce=False)
+        # cent_loss = self.ce(F.normalize(input), target)
         pt = torch.exp(-cent_loss)
         focal_loss = self.alpha * (1-pt)**self.gamma * cent_loss
 
-        if reduction == "mean":
+        if self.reduction == "mean":
             focal_loss = torch.mean(focal_loss)
 
         return cosine_loss + self.xent * focal_loss
@@ -57,9 +58,11 @@ def criterion_margin_focal_binary_cross_entropy(logit, truth):
 
     logit = logit.view(-1)
     truth = truth.view(-1)
-    # print([i.size() for i in [logit, truth]])
     log_pos = -F.logsigmoid( logit)
     log_neg = -F.logsigmoid(-logit)
+
+    # log_pos = -F.log_softmax( logit)
+    # log_neg = -F.log_softmax(-logit)
 
     log_prob = truth*log_pos + (1-truth)*log_neg
     prob = torch.exp(-log_prob)
@@ -84,7 +87,7 @@ def softmax_focal_loss(x, target, gamma=2., alpha=0.25):
 
 class FocalLossSoftmax(nn.Module):
 
-    def __init__(self, gamma=0, eps=1e-7):
+    def __init__(self, gamma=2, eps=1e-7):
         super(FocalLossSoftmax, self).__init__()
         self.gamma = gamma
         self.eps = eps
@@ -97,4 +100,4 @@ class FocalLossSoftmax(nn.Module):
         loss = -1 * target * torch.log(logit) # cross entropy
         loss = loss * (1 - logit) ** self.gamma # focal loss
 
-        return loss.sum()
+        return loss.mean()

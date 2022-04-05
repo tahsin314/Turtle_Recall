@@ -24,7 +24,7 @@ from albumentations import (
     OpticalDistortion, RandomSizedCrop, Resize, CenterCrop,
     VerticalFlip, HorizontalFlip, OneOf, CLAHE, Normalize,
     RandomBrightnessContrast, Cutout, RandomGamma, ShiftScaleRotate ,
-    GaussNoise, Blur, MotionBlur, GaussianBlur, 
+    GaussNoise, Blur, MotionBlur, GaussianBlur,
 )
 
 br_config = cfg()
@@ -138,11 +138,12 @@ test_df = get_data(data_dir, 'test.csv', class_id, None, random_state=SEED)
 
 train_aug = Compose([
     OneOf([
-        Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
-        GaussNoise(var_limit=0.2),
-        ShiftScaleRotate(p=0.4,rotate_limit=45, border_mode= cv2.BORDER_REFLECT101, value=[0, 0, 0], scale_limit=0.25)
+        # Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
+        GaussNoise(var_limit=0.1),
+        ShiftScaleRotate(p=0.4,rotate_limit=360, border_mode= cv2.BORDER_REFLECT101, value=[0, 0, 0], scale_limit=0.25)
 
     ], p=0.30),
+    Cutout(p=0.3, max_h_size=sz//16, max_w_size=sz//16, num_holes=10, fill_value=0),
     # HorizontalFlip(0.4),
     # VerticalFlip(0.4),
     # Rotate(limit=360, border_mode=2, p=0.4), 

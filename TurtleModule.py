@@ -101,11 +101,12 @@ class LightningTurtle(pl.LightningModule):
       self.criterion = self.loss_fns[0]
       self.train_loss  = 0
       img_id, logits = self.step(test_batch)
-      predictions = self.softmax(logits).detach().cpu().numpy()
+      predictions = logits.detach().cpu().numpy()
+      # predictions = logits.sigmoid().detach().cpu().numpy()
       predictions_id = np.argsort(predictions)[:, -5:][:, ::-1]
       predictions_k = np.sort(predictions, 1)[:, ::-1][:, :5]
       # for i, p in enumerate(predictions_k):
-      #   if p[-1] <= 1/100:
+      #   if p[-1] <= 1/2:
       #     predictions_id[i, -1] = 100
       self.test_imgs.extend([i.split('/')[-1].split('.')[0] for i in img_id])
       self.test_probs.extend(predictions_id)
@@ -116,7 +117,9 @@ class LightningTurtle(pl.LightningModule):
       # return test_log
 
   def label_processor(self, probs, gt):
-    pr = probs.sigmoid().detach().cpu().numpy()
+    # pr = probs.sigmoid().detach().cpu().numpy()
+    # pr = self.softmax(probs).detach().cpu().numpy()
+    pr = probs.detach().cpu().numpy()
     la = gt.detach().cpu().numpy()
     return pr, la
 

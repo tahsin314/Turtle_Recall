@@ -55,6 +55,9 @@ def get_data(dirname, csvfile, class_id, n_fold=5, random_state=42):
         df['fold'] = df['fold'].astype('int')
     try:
         df = df[df['target']!=class_id['new_turtle']]
+        # df_old = df[df['target']!=class_id['new_turtle']]
+        # df_new = df[df['target']==class_id['new_turtle']].sample(n=25, random_state=random_state)
+        # df = pd.concat([df_old, df_new])
     except: pass
     return df
 

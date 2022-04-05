@@ -52,7 +52,7 @@ else:
 optimizer = optim.AdamW
 # base_criterion = nn.BCEWithLogitsLoss(reduction='sum')
 # base_criterion = criterion_margin_focal_binary_cross_entropy
-base_criterion = FocalLossSoftmax()
+base_criterion = FocalCosineLoss(reduction='mean')
 # mixup_criterion_ = partial(mixup_criterion, criterion=base_criterion, rate=1.0)
 mixup_criterion = MixupLoss(base_criterion, 1.0)
 # ohem_criterion = partial(ohem_loss, rate=1.0, base_crit=base_criterion)
@@ -120,7 +120,7 @@ for f in range(n_fold):
     if mode == 'lr_finder': cyclic_scheduler = None
     model = LightningTurtle(model=base, choice_weights=choice_weights, loss_fns=criterions,
     optim= optimizer, plist=plist, batch_size=batch_size, 
-    lr_scheduler= lr_reduce_scheduler, num_class=num_class, fold=f, cyclic_scheduler=cyclic_scheduler, 
+    lr_scheduler= lr_reduce_scheduler, num_class=num_class, fold=f, cyclic_scheduler=None, 
     learning_rate = learning_rate, random_id=random_id)
     checkpoint_callback1 = ModelCheckpoint(
         monitor=f'val_loss_fold_{f}',
