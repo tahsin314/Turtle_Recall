@@ -32,18 +32,16 @@ from utils import *
 from model.effnet import EffNet
 from model.resne_t import (Resne_t, 
 TripletAttentionResne_t, AttentionResne_t, 
-CBAttentionResne_t, BotResne_t, Mixnet)
+CBAttentionResne_t, BotResne_t)
 from model.nfnet import NFNet 
 from model.hybrid import Hybrid
 from model.vit import ViT
 # from optimizers.over9000 import AdamW, Ralamb
 from TurtleModule import LightningTurtle
 import wandb
-import playsound
 
 seed_everything(SEED)
-os.system("del *.png *.csv *.npy")
-
+os.system("rm -rf *.png *.csv")
 if mode == 'lr_finder':
   wandb.init(mode="disabled")
   wandb_logger = WandbLogger(project="Turtle", config=params, settings=wandb.Settings())
@@ -55,7 +53,6 @@ else:
 optimizer = optim.AdamW
 # base_criterion = nn.BCEWithLogitsLoss(reduction='sum')
 # base_criterion = criterion_margin_focal_binary_cross_entropy
-# base_criterion = ArcFaceLoss()
 base_criterion = FocalLossSoftmax()
 # mixup_criterion_ = partial(mixup_criterion, criterion=base_criterion, rate=1.0)
 mixup_criterion = MixupLoss(base_criterion, 1.0)
@@ -67,7 +64,6 @@ lr_reduce_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau
 
 for f in range(n_fold):
     print(f"FOLD #{f}")
-    # playsound.playsound("Napalm Death - You Suffer (128 kbps).mp3")
     train_df = df[(df['fold']!=f)]
     valid_df = df[df['fold']==f]
     if 'eff' in model_name:
@@ -76,8 +72,6 @@ for f in range(n_fold):
       base = NFNet(model_name=pretrained_model, num_class=num_class).to(device)
     elif 'vit' in model_name:
       base = ViT(pretrained_model, num_class=num_class) # Not Working 
-    elif 'mixnet' in model_name:
-      base = Mixnet(pretrained_model, num_class=num_class)
     else:
       if model_type == 'Normal':
         base = Resne_t(pretrained_model, num_class=num_class).to(device)
@@ -114,27 +108,24 @@ for f in range(n_fold):
     test_ds = TurtleDataset(test_df.path.values, None, dim=sz,num_class=num_class, 
     transforms=val_aug)
     data_module = TurtleDataModule(train_ds, valid_ds, test_ds,  sampler= sampler, 
-    batch_size=batch_size, num_workers=0)
+    batch_size=batch_size, num_workers=num_workers)
     cyclic_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer(plist, 
     lr=learning_rate), 
     5*len(data_module.train_dataloader()), 1, learning_rate/5, -1)
     # cyclic_scheduler = None
-    cyclic_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer(plist, 
-    lr=learning_rate), learning_rate/5, 4*learning_rate/5, step_size_up=3*len(data_module.train_dataloader()), 
-    step_size_down=3*len(data_module.train_dataloader()), mode='exp_range', gamma=1.0, scale_fn=None, scale_mode='cycle', 
-    cycle_momentum=False, base_momentum=0.8, max_momentum=0.8, last_epoch=-1, verbose=False)
+    # cyclic_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer(plist, 
+    # lr=learning_rate), learning_rate/5, 4*learning_rate/5, step_size_up=3*len(data_module.train_dataloader()), 
+    # step_size_down=1*len(data_module.train_dataloader()), mode='exp_range', gamma=1.0, scale_fn=None, scale_mode='cycle', 
+    # cycle_momentum=False, base_momentum=0.8, max_momentum=0.8, last_epoch=-1, verbose=False)
     # cyclic_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer(plist, 
     # lr=learning_rate), [learning_rate/5, learning_rate], epochs=n_epochs, steps_per_epoch=len(data_module.train_dataloader()), 
     # pct_start=0.7, anneal_strategy='cos', cycle_momentum=True, base_momentum=0.80, max_momentum=0.80, 
     # div_factor=5.0, final_div_factor=20.0, three_phase=True, last_epoch=-1, verbose=False)
-    cyclic_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer(plist, 
-    lr=learning_rate), 
-    5*len(data_module.train_dataloader()), 1, learning_rate/5, -1)
-    # cyclic_scheduler = None
+
     if mode == 'lr_finder': cyclic_scheduler = None
     model = LightningTurtle(model=base, choice_weights=choice_weights, loss_fns=criterions,
     optim= optimizer, plist=plist, batch_size=batch_size, 
-    lr_scheduler= lr_reduce_scheduler, num_class=num_class, fold=f, cyclic_scheduler=cyclic_scheduler, 
+    lr_scheduler= lr_reduce_scheduler, num_class=num_class, fold=f, cyclic_scheduler=None, 
     learning_rate = learning_rate, random_id=random_id)
     checkpoint_callback1 = ModelCheckpoint(
         monitor=f'val_loss_fold_{f}',
@@ -163,18 +154,15 @@ for f in range(n_fold):
                       accumulate_grad_batches = accum_step,
                       logger=[wandb_logger], 
                       checkpoint_callback=True,
-                      gpus=gpu_ids, 
-                      num_processes=4*len(gpu_ids),
+                      gpus=gpu_ids, num_processes=4*len(gpu_ids),
                       stochastic_weight_avg=True,
                       # auto_scale_batch_size='power',
                       benchmark=True,
-                      # deterministic=True,
-                      resume_from_checkpoint=None if load_model is 0 else load_model,
-                      # distributed_backend=distributed_backend,
+                    #   distributed_backend=distributed_backend,
                       # plugins='deepspeed', # Not working 
                       # early_stop_callback=False,
                       progress_bar_refresh_rate=1, 
-                      callbacks=[checkpoint_callback2, swa_callback,
+                      callbacks=[checkpoint_callback1, checkpoint_callback2,
                       lr_monitor])
 
     if mode == 'lr_finder':
@@ -182,7 +170,7 @@ for f in range(n_fold):
       trainer.train_dataloader = data_module.train_dataloader
       # Run learning rate finder
       lr_finder = trainer.tuner.lr_find(model, data_module.train_dataloader(), min_lr=1e-6, 
-      max_lr=500, num_training=500)
+      max_lr=500, num_training=2000)
       # Plot with
       fig = lr_finder.plot(suggest=True, show=True)
       fig.savefig('lr_finder.png')
@@ -191,6 +179,7 @@ for f in range(n_fold):
       new_lr = lr_finder.suggestion()
       print(f"Suggested LR: {new_lr}")
       exit()
+
     wandb.log(params)
     trainer.fit(model, datamodule=data_module)
     print(gc.collect())
@@ -208,7 +197,7 @@ for f in range(n_fold):
 
     # trainer.test(model=model2, test_dataloaders=data_module.val_dataloader())
     trainer.test(model=model2, test_dataloaders=data_module.test_dataloader())
-  
+
     # CAM Generation
     model2.eval()
     # plot_heatmap(model2, test_df, val_aug, cam_layer_name=cam_layer_name, num_class=num_class, sz=sz)
@@ -221,7 +210,6 @@ for f in range(n_fold):
     # print(lrp)
     if not oof:
       break
-ensemble =  ensemble_predictions([f'SUBMISSION_PROB_fold{i}.npy' for i in  range(5)], id_class, test_df)
-ensemble.to_csv('ensemble.csv', index=False)
+
 # oof_df = pd.concat([pd.read_csv(fname) for fname in glob.glob('oof_*.csv')])
 # oof_df.to_csv(f'oof.csv', index=False)

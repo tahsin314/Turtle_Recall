@@ -68,7 +68,7 @@ class AttentionResne_t(nn.Module):
         a2, g2 = self.attn2(layer2, layer3)
         g = self.head(layer4)
         g_hat = torch.cat((g,g1,g2), dim=1) # batch_size x C
-        out = self.output(g_hat)
+        out = self.head(g_hat)
         return out
 
 class TripletAttentionResne_t(nn.Module):
@@ -172,28 +172,22 @@ class BotResne_t(nn.Module):
         return out
 class Mixnet(nn.Module):
 
-    def __init__(self, model_name='mixnet_xxl', use_meta=True, out_neurons=600, meta_neurons=150):
+    def __init__(self, model_name='mixnet_xxl', num_class=100):
         super().__init__()
-        self.backbone = timm.create_model(model_name, pretrained=True)
-        self.use_meta = use_meta
+        self.backbone = timm.create_model(model_name, pretrained=True, in_chans=3)
         self.in_features = self.backbone.classifier.in_features
-        # self.backbone.act2 = GeM()
-        # self.backbone.act1 = GeM()
-        # to_GeM(self.backbone.Turtles)
         self.backbone.classifier = nn.Linear(self.in_features, 128)
         self.output = nn.Linear(128, 2)
-        self.head = Head(self.in_features,2, activation='mish', use_meta=self.use_meta)
+        self.head = Head(self.in_features,num_class, activation='mish')
+
 
     def forward(self, x, meta_data=None):
         x = self.backbone.conv_stem(x)
         x = self.backbone.bn1(x)
         x = self.backbone.act1(x)
-        x = self.backbone.Turtles(x)
+        x = self.backbone.blocks(x)
         x = self.backbone.conv_head(x)
         x = self.backbone.bn2(x)
         x = self.backbone.act2(x)
-        x = self.backbone.global_pool(x)
-        x = x.flatten(1)
-        x = self.backbone.classifier(x)
-        x = self.output(x)
+        x = self.head(x)
         return x

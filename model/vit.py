@@ -5,8 +5,9 @@ class ViT(nn.Module):
     def __init__(self, pretrained_model='vit_base_patch16_384', num_class=5):
         super().__init__()
         self.backbone = timm.create_model(pretrained_model, pretrained=True)
+        print(self.backbone)
         Turtles = []
-        for b in self.backbone.Turtles:
+        for b in self.backbone.blocks:
             Turtles.append(nn.Sequential(b))
         self.Turtles = nn.Sequential(*Turtles)
         # print(self.Turtles[-1][0].mlp.fc2.out_features)

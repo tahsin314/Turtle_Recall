@@ -54,8 +54,9 @@ oof = bool(int(params['oof']))
 model_list = ['resnet18d', 'gluon_resnet34_v1b', 'gluon_resnet50_v1b', 'gluon_resnet101_v1b', 
 'gluon_resnext101_64x4d', 'gluon_seresnext101_32x4d', 'gluon_resnext50_32x4d',
 'gluon_seresnext50_32x4d', 'gluon_seresnext101_32x4d', 'resnest50d_1s4x24d', 'resnest101e', 'tf_efficientnet_b0',
-'tf_efficientnet_b1', 'tf_efficientnet_b2', 'tf_efficientnet_b3', 'tf_efficientnet_b4',
-'tf_efficientnet_b5', 'vit_base_patch16_384', 'lambda_resnet50', 'nfnet_l0', 'efficientnet_v2s']
+'tf_efficientnet_b1', 'tf_efficientnet_b2', 'tf_efficientnet_b3', 'tf_efficientnet_b4', 'tf_efficientnet_b4_ns',
+'tf_efficientnet_b5', 'vit_base_patch8_224', 'vit_base_patch16_384', 'vit_small_resnet50d_s16_224', 'lambda_resnet50', 'nfnet_l0', 'efficientnet_v2s', 'mixnet_l', 
+'mixnet_xl', 'mixnet_xxl', 'nfnet_f3', 'nfnet_f0']
 model_type = params['model_type']
 pretrained_model = [i for i in model_list if params['pretrained_model'] in i][0]
 model_name = f'{pretrained_model}_fold_{val_fold}'
@@ -149,6 +150,7 @@ train_aug = Compose([
     # Rotate(limit=360, border_mode=2, p=0.4), 
     Resize(sz, sz, p=1, always_apply=True),
     RandomSizedCrop(min_max_height=(int(sz*0.8), int(sz*0.8)), height=sz, width=sz, p=0.4),
+    HueSaturationValue(p=0.4),
     Resize(sz, sz, p=1, always_apply=True)
     ],    
       )

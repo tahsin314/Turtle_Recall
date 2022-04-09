@@ -14,7 +14,7 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 from tqdm import tqdm as T
 from gradcam.gradcam import GradCAM, GradCAMpp
-from captum.attr import LRP 
+# from captum.attr import LRP 
 
 
 def seed_everything(seed):
@@ -60,6 +60,23 @@ def get_data(dirname, csvfile, class_id, n_fold=5, random_state=42):
         # df = pd.concat([df_old, df_new])
     except: pass
     return df
+
+def ensemble_predictions(npys, id_class, test_df):
+    pred = np.load(npys[0])
+    img_ids = df['image_id'].to_list()
+    predictions = pred
+    for npy in npys[1:]:
+        pred = np.load(npy)
+        predictions += pred
+    predictions_id = np.argsort(predictions)[:, -5:][:, ::-1]
+    test_probs = np.array([id_class[i] for i in np.array(predictions_id).reshape(-1)]).reshape(-1, 5)
+    # print(test_probs)
+    test_df = pd.DataFrame({'image_id':img_ids, 'prediction1':test_probs[:, 0], 
+    'prediction2':test_probs[:, 1], 'prediction3':test_probs[:, 2],
+     'prediction4':test_probs[:, 3], 'prediction5':test_probs[:, 4]})
+    # predictions_k = np.sort(predictions, 1)[:, ::-1][:, :5]
+    
+    return test_df
 
 def apk(actual, predicted, k=5):
   """Computes the average precision at k.

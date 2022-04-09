@@ -37,6 +37,7 @@ class LightningTurtle(pl.LightningModule):
       self.train_loss  = 0
       self.test_imgs = []
       self.test_probs = []
+      self.TEST_PROBS_ALL = []
       self.epoch_end_output = [] # Ugly hack for gathering results from multiple GPUs
       self.softmax = nn.Softmax(dim=1)
   
@@ -63,9 +64,10 @@ class LightningTurtle(pl.LightningModule):
     try:
       _, x, y = batch
       x, y = x.float(), y.float()
-      if self.criterion == self.loss_fns[1]:
-        x, y1, y2, lam = mixup(x, y)
-        y = [y1, y2, lam]
+      if len(self.loss_fns) >1:
+        if self.criterion == self.loss_fns[1]:
+          x, y1, y2, lam = mixup(x, y)
+          y = [y1, y2, lam]
     except:
       img_id, x = batch
     
@@ -80,6 +82,8 @@ class LightningTurtle(pl.LightningModule):
     # if self.current_epoch < 4:
     #   loss, _, _ = self.step(train_batch, [1.0, 0.0])
     # else:
+    if self.current_epoch >=30:
+      self.cyclic_scheduler = None
     self.criterion = choices(self.loss_fns, weights=choice_weights)[0]
     loss, _, _ = self.step(train_batch)
     self.train_loss  += loss.detach()
@@ -102,24 +106,22 @@ class LightningTurtle(pl.LightningModule):
       self.train_loss  = 0
       img_id, logits = self.step(test_batch)
       predictions = logits.detach().cpu().numpy()
+      self.TEST_PROBS_ALL.extend(self.softmax(logits).detach().cpu().numpy())
+      # self.TEST_PROBS_ALL.extend(logits.sigmoid().detach().cpu().numpy())
       # predictions = logits.sigmoid().detach().cpu().numpy()
       predictions_id = np.argsort(predictions)[:, -5:][:, ::-1]
       predictions_k = np.sort(predictions, 1)[:, ::-1][:, :5]
       # for i, p in enumerate(predictions_k):
       #   if p[-1] <= 1/2:
       #     predictions_id[i, -1] = 100
-      self.test_imgs.extend([i.split('/')[-1].split('.')[0] for i in img_id])
+      self.test_imgs.extend([i.split('/')[-1].split('.')[0].replace("images\\", "") for i in img_id])
       self.test_probs.extend(predictions_id)
-      # self.log(f'test_loss_fold_{self.fold}', loss, on_epoch=True, sync_dist=True) 
-      # test_log = {'img_id':[i.split('/')[-1].split('.')[0] for i in img_id], 'probs':logits}
-      # # print(logits.size())
-      # self.epoch_end_output.append({k:v for k,v in test_log.items()})
-      # return test_log
+      
 
   def label_processor(self, probs, gt):
     # pr = probs.sigmoid().detach().cpu().numpy()
-    # pr = self.softmax(probs).detach().cpu().numpy()
-    pr = probs.detach().cpu().numpy()
+    pr = self.softmax(probs).detach().cpu().numpy()
+    # pr = probs.detach().cpu().numpy()
     la = gt.detach().cpu().numpy()
     return pr, la
 
@@ -141,7 +143,7 @@ class LightningTurtle(pl.LightningModule):
       gt = torch.cat([torch.tensor(out['gt']) for out in outputs], dim=0)
       pr, la = self.label_processor(torch.squeeze(probs), torch.squeeze(gt))
       pr = np.nan_to_num(pr, 0.5)
-      labels = [i for i in range(self.num_class)]
+      # labels = [i for i in range(self.num_class)]
       # pr = np.argmax(pr, axis=1)
       la = np.argmax(la, axis=1)
       map_k = torch.tensor(mapk(la, pr, k=5))
@@ -175,5 +177,10 @@ class LightningTurtle(pl.LightningModule):
     # print(np.array(self.test_imgs).shape, np.array(self.test_probs).shape)
     test_probs = np.array([id_class[i] for i in np.array(self.test_probs).reshape(-1)]).reshape(-1, 5)
     # print(test_probs)
-    test_df = pd.DataFrame({'image_id':self.test_imgs, 'prediction1':test_probs[:, 0], 'prediction2':test_probs[:, 1], 'prediction3':test_probs[:, 2], 'prediction4':test_probs[:, 3], 'prediction5':test_probs[:, 4]})
-    test_df.to_csv(f'SUBMISSION.csv', index=False)
+    test_df = pd.DataFrame({'image_id':self.test_imgs, 'prediction1':test_probs[:, 0], 
+    'prediction2':test_probs[:, 1], 'prediction3':test_probs[:, 2],
+     'prediction4':test_probs[:, 3], 'prediction5':test_probs[:, 4]})
+    test_prob_df = pd.DataFrame({'image_id':self.test_imgs, 'probabilities':self.TEST_PROBS_ALL})
+    np.save(f'SUBMISSION_PROB_fold{self.fold}.npy', self.TEST_PROBS_ALL)
+    test_df.to_csv(f'SUBMISSION_fold{self.fold}.csv', index=False)
+    

@@ -15,7 +15,8 @@ class FocalLoss(nn.Module):
         if self.logits:
             BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='sum')
         else:
-            BCE_loss = nn.BCEWithLogitsLoss(inputs, targets, reduction='sum')
+            loss_fn = nn.BCEWithLogitsLoss(reduction='sum')
+            BCE_loss = loss_fn(inputs, targets)
 
         pt = torch.exp(-BCE_loss)
         F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
@@ -26,7 +27,7 @@ class FocalLoss(nn.Module):
             return F_loss
 
 class FocalCosineLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=2, xent=.1, reduction="mean", device="cuda:2"):
+    def __init__(self, alpha=1, gamma=2, xent=.1, reduction="mean", device="cuda:0"):
         super(FocalCosineLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
@@ -100,4 +101,4 @@ class FocalLossSoftmax(nn.Module):
         loss = -1 * target * torch.log(logit) # cross entropy
         loss = loss * (1 - logit) ** self.gamma # focal loss
 
-        return loss.mean()
+        return loss.sum()
