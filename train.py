@@ -39,7 +39,7 @@ from model.vit import ViT
 # from optimizers.over9000 import AdamW, Ralamb
 from TurtleModule import LightningTurtle
 import wandb
-import playsound
+# import playsound
 
 seed_everything(SEED)
 os.system("del *.png *.csv *.npy")
@@ -114,7 +114,7 @@ for f in range(n_fold):
     test_ds = TurtleDataset(test_df.path.values, None, dim=sz,num_class=num_class, 
     transforms=val_aug)
     data_module = TurtleDataModule(train_ds, valid_ds, test_ds,  sampler= sampler, 
-    batch_size=batch_size, num_workers=0)
+    batch_size=batch_size, num_workers=num_workers)
     cyclic_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer(plist, 
     lr=learning_rate), 
     5*len(data_module.train_dataloader()), 1, learning_rate/5, -1)

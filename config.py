@@ -55,7 +55,7 @@ model_list = ['resnet18d', 'gluon_resnet34_v1b', 'gluon_resnet50_v1b', 'gluon_re
 'gluon_resnext101_64x4d', 'gluon_seresnext101_32x4d', 'gluon_resnext50_32x4d',
 'gluon_seresnext50_32x4d', 'gluon_seresnext101_32x4d', 'resnest50d_1s4x24d', 'resnest101e', 'tf_efficientnet_b0',
 'tf_efficientnet_b1', 'tf_efficientnet_b2', 'tf_efficientnet_b3', 'tf_efficientnet_b4', 'tf_efficientnet_b4_ns',
-'tf_efficientnet_b5', 'vit_base_patch8_224', 'vit_base_patch16_384', 'vit_small_resnet50d_s16_224', 'lambda_resnet50', 'nfnet_l0', 'efficientnet_v2s', 'mixnet_l', 
+'tf_efficientnet_b5', 'tf_efficientnet_b3_ns', 'vit_base_patch8_224', 'vit_base_patch16_384', 'vit_small_resnet50d_s16_224', 'lambda_resnet50', 'nfnet_l0', 'efficientnet_v2s', 'mixnet_l', 
 'mixnet_xl', 'mixnet_xxl', 'nfnet_f3', 'nfnet_f0']
 model_type = params['model_type']
 pretrained_model = [i for i in model_list if params['pretrained_model'] in i][0]
